@@ -1,1 +1,67 @@
-This part is about decision trees...
+# This part is about decision trees...
+# Learn from the book **Machine Learning with R.Second Edition** by Brett Lantz
+# 1. Collecting data
+credit <- read.csv("E:\\zxy.ntu\\Analytics Solftware\\Individual\\credit.csv")
+# 2. Exploring and preparing the data
+str(credit)
+any(is.na(credit))
+table(credit$checking_balance)
+tb1 <- table(credit$checking_balance)
+pct <- round(prop.table(tb1)*100,2)
+pie(tb1, 
+    labels = paste(names(tb1),pct,'%'),
+    col = c('#83ECE8','#74CECB','#8BB7B6','#6E9392'))
+table(credit$savings_balance)
+summary(credit$months_loan_duration)
+summary(credit$amount)
+table(credit$default)
+credit$default <- as.factor(credit$default)
+# Data preparation - creating random training and test datasets
+# Using a random sample, and set a seed value
+set.seed(123)
+train_sample <- sample(1000,900)
+str(train_sample)
+credit_train <- credit[train_sample,]
+credit_test <- credit[-train_sample,]
+prop.table(table(credit_train$default))
+prop.table(table(credit_test$default))
+# 3. Training a model on the data
+install.packages("C50")
+library(C50)
+#credit_train$default <- as.factor(credit_train$default), require a factor outcome
+credit_model <- C5.0(credit_train[-17], credit_train$default)
+credit_model
+# to see the tree's decisions
+summary(credit_model)
+# 4. Evaluating model performance
+credit_pred  <- predict(credit_model, credit_test)
+install.packages("gmodels")
+library(gmodels)
+CrossTable(credit_test$default, credit_pred,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+library(caret)
+confusionMatrix(credit_pred, as.factor(credit_test$default))
+# 5. Improving model performance
+credit_boost20 <- C5.0(credit_train[-17], credit_train$default,
+                       trials = 20)
+credit_boost20
+summary(credit_boost20)
+credit_boost_pred20 <- predict(credit_boost20, credit_test)
+confusionMatrix(credit_boost_pred20, as.factor(credit_test$default))
+CrossTable(credit_test$default, credit_boost_pred20,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predict default'))
+# Making mistakes more costlier than others 
+matrix_dimensions <- list(c('no','yes'), c('no','yes'))
+names(matrix_dimensions) <- c("predicted","actual")
+matrix_dimensions
+error_cost <- matrix(c(0, 1, 4, 0), nrow = 2,
+                     dimnames = matrix_dimensions)
+error_cost
+credit_cost <- C5.0(credit_train[-17], credit_train$default,
+                    costs = error_cost)
+credit_cost_pred <- predict(credit_cost, credit_test)
+CrossTable(credit_test$default, credit_cost_pred,
+           prop.r = FALSE, prop.c = FALSE, prop.chisq = FALSE,
+           dnn = c("actual default","predicted default"))
